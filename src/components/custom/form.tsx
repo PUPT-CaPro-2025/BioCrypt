@@ -14,6 +14,10 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { FaCopy } from "react-icons/fa";
+import { Checkbox } from "../ui/checkbox";
+import emailjs from "emailjs-com";
+import { Spinner } from "./spinner";
+import { useRef } from "react";
 
 export function TabsDemo() {
   const [isDisabled, setIsDisabled] = useState(true);
@@ -27,6 +31,19 @@ export function TabsDemo() {
   const [decryptionKey, setDecryptionKey] = useState("");
   const [disabledDecrypt, setDisabledDecrypt] = useState(true);
   const [decryptedText, setDecryptedText] = useState("");
+  const [isChecked, setIsChecked] = useState(false);
+  const [loader, setLoader] = useState(false);
+
+  const [isNameValid, setIsNameValid] = useState(false);
+  const [isEmailValid, setIsEmailValid] = useState(false);
+
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
+
+
+  const handleCheckboxChange = () => {
+     setIsChecked(!isChecked);
+  };
 
   const { toast } = useToast();
 
@@ -43,6 +60,17 @@ export function TabsDemo() {
     setDisabledDecrypt(
       e.target.value.trim() === "" || decryptionKey.trim() === ""
     );
+  };
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.trim();
+    setIsNameValid(value.length > 0); // Name is valid if it's not empty
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Basic email validation regex
+    setIsEmailValid(emailRegex.test(value)); // Email is valid if it matches the regex
   };
 
   const handleDecryptionKeyChange = (
@@ -223,6 +251,61 @@ export function TabsDemo() {
     setEncryptionKey("");
     setIsDisabled(true);
     setSubmit(false);
+    setIsChecked(false);
+  };
+
+  const sendEmail = () => {
+    setLoader(true);
+    const fromName = (document.getElementById("from") as HTMLInputElement)
+      ?.value;
+    const email = (document.getElementById("email") as HTMLInputElement)?.value;
+
+    if (!fromName || !email || !encryptedText || !encryptionKey) {
+      toast({
+        title: "Error",
+        description: "Please fill out all fields before sending.",
+      });
+      return;
+    }
+
+    const templateParams = {
+      from_name: fromName,
+      reply_to: email,
+      message: encryptedText,
+      message_key: encryptionKey,
+    };
+
+    emailjs
+      .send(
+        import.meta.env.VITE_EMAILJS_SERVICE_ID || "",
+        import.meta.env.VITE_EMAILJS_TEMPLATE_ID || "",
+        templateParams,
+        import.meta.env.VITE_EMAILJS_USER_ID || ""
+      )
+      .then(
+        () => {
+          setLoader(false);
+
+          if (nameInputRef.current) nameInputRef.current.value = "";
+          if (emailInputRef.current) emailInputRef.current.value = "";
+
+          setIsNameValid(false);
+          setIsEmailValid(false);
+
+          toast({
+            title: "Success",
+            description: "Email sent successfully!",
+          });
+        },
+        (error) => {
+          setLoader(false);
+          console.error("Failed to send email:", error);
+          toast({
+            title: "Error",
+            description: "Failed to send email. Please try again later.",
+          });
+        }
+      );
   };
 
   return (
@@ -274,12 +357,12 @@ export function TabsDemo() {
                     style={{ zIndex: 10 }}
                     variant="secondary"
                     size="sm"
-                    onClick={() => 
-                        copyToClipboard("encryptionKey", {
-                          title: "Copied!",
-                          description: "Encryption key copied to clipboard",
-                          position: "center",
-                        })
+                    onClick={() =>
+                      copyToClipboard("encryptionKey", {
+                        title: "Copied!",
+                        description: "Encryption key copied to clipboard",
+                        position: "center",
+                      })
                     }
                   >
                     <FaCopy />
@@ -314,6 +397,69 @@ export function TabsDemo() {
                   </Button>
                 </div>
               </CardContent>
+
+              <div className="flex items-center space-x-2 ml-6 mb-6">
+                <Checkbox
+                  id="terms"
+                  onCheckedChange={handleCheckboxChange}
+                  checked={isChecked}
+                />
+                <label
+                  htmlFor="terms"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 select-none"
+                >
+                  Send to email
+                </label>
+              </div>
+
+              {isChecked && (
+                <div>
+                  <CardContent>
+                    <Label htmlFor="email" className="text-sm">
+                      Sender Name
+                    </Label>
+                    <Input
+                      id="from"
+                      className="w-full"
+                      placeholder="Enter your name..."
+                      name="from_name"
+                      onChange={handleNameChange}
+                      ref={nameInputRef}
+                    />
+
+                    <Label htmlFor="email" className="text-sm">
+                      Email
+                    </Label>
+                    <Input
+                      id="email"
+                      className="w-full"
+                      placeholder="Enter recipient email..."
+                      name="email"
+                      onChange={handleEmailChange}
+                      ref={emailInputRef}
+                    />
+                  </CardContent>
+
+                  <div className="flex items-center justify-center h-full">
+                    {loader && (
+                      <Button className="mb-10">
+                        <Spinner />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-center h-full">
+                    {!loader && (
+                      <Button
+                        className="mb-10"
+                        onClick={() => sendEmail()}
+                        disabled={!isNameValid || !isEmailValid}
+                      >
+                        Send
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -347,17 +493,6 @@ export function TabsDemo() {
 
           <CardContent className="space-y-2">
             <div className="space-y-1">
-              <Label htmlFor="toDecrypt" className="text-sm">
-                Enter encrypted text
-              </Label>
-              <Textarea
-                id="toDecrypt"
-                className="w-full"
-                value={toDecrypt}
-                onChange={handleEncryptedTextChange}
-              ></Textarea>
-            </div>
-            <div className="space-y-1">
               <Label htmlFor="key" className="text-sm">
                 Enter encryption key
               </Label>
@@ -367,6 +502,17 @@ export function TabsDemo() {
                 value={decryptionKey}
                 onChange={handleDecryptionKeyChange}
               />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="toDecrypt" className="text-sm">
+                Enter encrypted text
+              </Label>
+              <Textarea
+                id="toDecrypt"
+                className="w-full"
+                value={toDecrypt}
+                onChange={handleEncryptedTextChange}
+              ></Textarea>
             </div>
 
             {submitDecrypt && (
@@ -397,5 +543,4 @@ export function TabsDemo() {
       </TabsContent>
     </Tabs>
   );
-
 }
