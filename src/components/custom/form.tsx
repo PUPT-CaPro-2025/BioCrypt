@@ -92,7 +92,7 @@ export function TabsDemo() {
 
   const handleDecrypt = () => {
     const decrypted = decryptWithCustomAlgorithm(toDecrypt, decryptionKey);
-    
+
     setDecryptedText(decrypted);
     setSubmitDecrypt(true);
     setDisabledDecrypt(true);
@@ -243,6 +243,15 @@ export function TabsDemo() {
         toast(customToast);
       });
     }
+  };
+
+  const resetForm = () => {
+    setPlainText("");
+    setEncryptedText("");
+    setEncryptionKey("");
+    setIsDisabled(true);
+    setSubmit(false);
+    setIsChecked(false);
   };
 
   const sendEmail = () => {
@@ -462,6 +471,12 @@ export function TabsDemo() {
             >
               Encrypt
             </Button>
+
+            {submit && (
+              <Button className="w-full" onClick={() => resetForm()}>
+                Reset
+              </Button>
+            )}
           </CardFooter>
         </Card>
       </TabsContent>
